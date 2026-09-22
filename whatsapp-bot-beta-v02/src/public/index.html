@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WhatsApp Bot — Beta 0.2</title>
+  <style>
+    :root {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: #17202a;
+      background: #f3f5f7;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 18px 48px; }
+    .header { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; flex-wrap:wrap; }
+    h1 { margin:0 0 4px; font-size:28px; }
+    .muted { color:#68737d; }
+    .small { font-size:12px; }
+    .card { background:#fff; border:1px solid #dde3e8; border-radius:16px; padding:18px; margin-top:16px; box-shadow:0 6px 24px rgba(0,0,0,.04); }
+    .status { display:inline-flex; align-items:center; gap:8px; font-weight:800; }
+    .dot { width:10px; height:10px; border-radius:50%; background:#999; }
+    .ready .dot { background:#20a464; }
+    .qr { display:block; max-width:300px; width:100%; margin:14px auto; border-radius:12px; border:1px solid #ddd; }
+    .layout { display:grid; grid-template-columns: 1.15fr .85fr; gap:18px; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; }
+    button, select, input, textarea { font:inherit; }
+    button { border:0; border-radius:10px; padding:10px 13px; font-weight:800; cursor:pointer; background:#1f6feb; color:#fff; }
+    button.secondary { background:#eef2f6; color:#24303a; }
+    button.danger { background:#b42318; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    input, textarea, select { width:100%; border:1px solid #cfd7de; border-radius:10px; padding:10px 11px; }
+    textarea { min-height:150px; resize:vertical; }
+    label { display:block; font-size:13px; font-weight:800; margin-bottom:7px; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .contact-tools { display:grid; grid-template-columns:1fr auto auto auto; gap:8px; align-items:end; }
+    .contacts { max-height:490px; overflow:auto; border:1px solid #e0e5e9; border-radius:12px; margin-top:10px; }
+    .contact { display:flex; gap:10px; padding:10px 12px; align-items:center; border-bottom:1px solid #edf0f2; }
+    .contact:last-child { border-bottom:0; }
+    .contact:hover { background:#f8fafc; }
+    .contact input { width:18px; height:18px; }
+    .contact-main { min-width:0; flex:1; }
+    .name { font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .number { color:#6f7a84; font-size:12px; margin-top:2px; }
+    .chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+    .chip { background:#eef2f6; color:#33404b; border-radius:999px; padding:5px 9px; font-size:12px; font-weight:800; }
+    .tabs { display:flex; gap:6px; margin-bottom:12px; border-bottom:1px solid #e5e9ed; }
+    .tab { background:transparent; color:#68737d; border-radius:0; border-bottom:3px solid transparent; }
+    .tab.active { color:#1f6feb; border-bottom-color:#1f6feb; }
+    .block-list { display:grid; gap:8px; max-height:300px; overflow:auto; }
+    .block-item { display:flex; align-items:center; gap:10px; border:1px solid #e0e5e9; padding:10px 12px; border-radius:11px; }
+    .block-item-main { flex:1; min-width:0; }
+    .preview { white-space:pre-wrap; background:#f2f7ff; border-radius:10px; padding:12px; min-height:90px; }
+    .target { background:#f7f9fb; border:1px dashed #cfd7de; border-radius:12px; padding:12px; }
+    .target strong { display:block; margin-bottom:4px; }
+    .progress-wrap { display:none; margin-top:14px; }
+    .progress { height:10px; background:#e9edf1; border-radius:999px; overflow:hidden; }
+    .progress > div { height:100%; width:0; background:#1f6feb; transition:width .2s; }
+    .feedback { margin-top:10px; font-weight:700; }
+    .success { color:#16794c; }
+    .danger-text { color:#a23b32; }
+    .warning { background:#fff7e6; border:1px solid #f2d49b; color:#6e500d; border-radius:12px; padding:11px 12px; font-size:13px; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; padding:18px; }
+    .modal { width:min(460px,100%); background:#fff; border-radius:16px; padding:18px; }
+    @media (max-width: 900px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width: 620px) { .row, .contact-tools { grid-template-columns:1fr; } .header { flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h1>WhatsApp Bot — Beta 0.2</h1>
+        <div class="muted">Contactos individuales, bloques y envío controlado desde tu WhatsApp personal.</div>
+      </div>
+      <div class="toolbar">
+        <button id="refresh" class="secondary">Actualizar contactos</button>
+      </div>
+    </div>
+
+    <div class="card" id="connectionCard">
+      <div class="status" id="status"><span class="dot"></span><span>Conectando...</span></div>
+      <div id="statusText" class="muted small" style="margin-top:8px"></div>
+      <img id="qr" class="qr" alt="QR de WhatsApp" hidden />
+      <div class="muted small" id="qrHelp" hidden>En tu teléfono: WhatsApp → Dispositivos vinculados → Vincular un dispositivo.</div>
+    </div>
+
+    <div class="card">
+      <div class="layout">
+        <div>
+          <div class="tabs">
+            <button class="tab active" data-tab="contacts">Contactos</button>
+            <button class="tab" data-tab="blocks">Bloques</button>
+            <button class="tab" data-tab="all">Todos</button>
+          </div>
+
+          <section id="tab-contacts">
+            <div class="contact-tools">
+              <div>
+                <label for="search">Buscar contacto</label>
+                <input id="search" placeholder="Nombre o número" />
+              </div>
+              <button id="selectVisible" class="secondary">Seleccionar visibles</button>
+              <button id="clearSelection" class="secondary">Limpiar</button>
+              <button id="saveBlock" disabled>Guardar bloque</button>
+            </div>
+            <div class="muted small" style="margin-top:8px"><span id="contactCount">0</span> contactos mostrados · <span id="selectedCount">0</span> seleccionados</div>
+            <div class="contacts" id="contacts"></div>
+          </section>
+
+          <section id="tab-blocks" hidden>
+            <div class="muted small" style="margin-bottom:10px">Los bloques quedan guardados en <code>data/blocks.json</code>.</div>
+            <div class="block-list" id="blocks"></div>
+          </section>
+
+          <section id="tab-all" hidden>
+            <div class="target">
+              <strong>Todos mis contactos</strong>
+              <div class="muted small">Usará todos los contactos individuales que WhatsApp reporte como tus contactos.</div>
+              <div class="chips"><span class="chip" id="allCountChip">0 contactos</span></div>
+              <div style="margin-top:12px"><button id="chooseAll">Usar todos los contactos</button></div>
+            </div>
+          </section>
+        </div>
+
+        <div>
+          <label>Destino del envío</label>
+          <div class="target">
+            <strong id="targetTitle">Selección manual</strong>
+            <div class="muted small" id="targetSummary">Selecciona uno o varios contactos.</div>
+            <div class="chips" id="targetChips"></div>
+          </div>
+
+          <div style="height:14px"></div>
+          <label for="message">Mensaje</label>
+          <textarea id="message" placeholder="Escribe el mensaje...\nPuedes usar {{nombre}} y {{telefono}} para personalizarlo por contacto."></textarea>
+
+          <div style="height:14px"></div>
+          <div class="row">
+            <div>
+              <label for="delay">Espera entre mensajes</label>
+              <select id="delay">
+                <option value="2500">2.5 segundos</option>
+                <option value="3500" selected>3.5 segundos</option>
+                <option value="5000">5 segundos</option>
+                <option value="10000">10 segundos</option>
+              </select>
+            </div>
+            <div>
+              <label>Vista previa</label>
+              <div class="preview" id="preview"></div>
+            </div>
+          </div>
+
+          <div class="warning" style="margin-top:14px">
+            Revisa destinatarios y mensaje antes de enviar. Para esta beta los envíos son secuenciales y requieren confirmación.
+          </div>
+
+          <div style="height:12px"></div>
+          <button id="send" disabled>Enviar a 0 contactos</button>
+          <button id="cancelSend" class="danger" style="display:none;margin-top:8px">Cancelar envío</button>
+          <div class="progress-wrap" id="progressWrap">
+            <div class="muted small" id="progressText">Preparando...</div>
+            <div class="progress" style="margin-top:7px"><div id="progressBar"></div></div>
+          </div>
+          <div id="feedback" class="feedback"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="blockModal">
+    <div class="modal">
+      <h3 style="margin-top:0">Crear bloque</h3>
+      <div class="muted small" style="margin-bottom:12px">Se guardarán <strong id="blockSelectedCount">0</strong> contactos.</div>
+      <label for="blockName">Nombre del bloque</label>
+      <input id="blockName" placeholder="Ej. Clientes frecuentes" />
+      <div class="toolbar" style="justify-content:flex-end;margin-top:14px">
+        <button id="closeModal" class="secondary">Cancelar</button>
+        <button id="confirmBlock">Guardar bloque</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let allContacts = [];
+  let selectedIds = new Set();
+  let targetIds = [];
+  let targetTitle = 'Selección manual';
+  let blocks = [];
+  let lastStatus = null;
+  let currentJobId = null;
+
+  const $ = (id) => document.getElementById(id);
+
+  async function api(url, options) {
+    const response = await fetch(url, options);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error');
+    return data;
+  }
+
+  function renderStatus(state) {
+    lastStatus = state.status;
+    const labels = {
+      starting: 'Iniciando', qr_ready: 'Esperando QR', authenticated: 'Autenticado',
+      ready: 'Conectado', disconnected: 'Desconectado', auth_failure: 'Error de autenticación'
+    };
+    $('status').className = 'status ' + (state.status === 'ready' ? 'ready' : '');
+    $('status').querySelector('span:last-child').textContent = labels[state.status] || state.status;
+    $('statusText').textContent = state.lastError || (state.status === 'ready' ? `Cuenta conectada: ${state.me || ''}` : '');
+    $('qr').hidden = !state.qrDataUrl;
+    $('qrHelp').hidden = !state.qrDataUrl;
+    if (state.qrDataUrl) $('qr').src = state.qrDataUrl;
+    updateSendButton();
+  }
+
+  function visibleContacts() {
+    const q = $('search').value.trim().toLowerCase();
+    if (!q) return allContacts;
+    return allContacts.filter(c => `${c.name} ${c.number}`.toLowerCase().includes(q));
+  }
+
+  function renderContacts() {
+    const list = visibleContacts();
+    $('contactCount').textContent = list.length;
+    $('selectedCount').textContent = selectedIds.size;
+    $('saveBlock').disabled = selectedIds.size === 0;
+    $('contacts').innerHTML = '';
+
+    if (!list.length) {
+      $('contacts').innerHTML = '<div class="muted" style="padding:14px">No se encontraron contactos.</div>';
+      return;
+    }
+
+    for (const c of list) {
+      const row = document.createElement('label');
+      row.className = 'contact';
+      row.innerHTML = `<input type="checkbox"><div class="contact-main"><div class="name"></div><div class="number"></div></div>`;
+      const checkbox = row.querySelector('input');
+      checkbox.checked = selectedIds.has(c.id);
+      row.querySelector('.name').textContent = c.name;
+      row.querySelector('.number').textContent = c.number;
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) selectedIds.add(c.id); else selectedIds.delete(c.id);
+        updateTargetFromSelection();
+        renderContacts();
+      });
+      $('contacts').appendChild(row);
+    }
+  }
+
+  function updateTargetFromSelection() {
+    targetIds = Array.from(selectedIds);
+    targetTitle = targetIds.length ? 'Selección manual' : 'Selección manual';
+    renderTarget();
+    updateSendButton();
+  }
+
+  function renderTarget() {
+    $('targetTitle').textContent = targetTitle;
+    $('targetSummary').textContent = targetIds.length ? `${targetIds.length} contacto(s) seleccionado(s)` : 'Selecciona uno o varios contactos.';
+    const box = $('targetChips');
+    box.innerHTML = '';
+    targetIds.slice(0, 18).forEach(id => {
+      const c = allContacts.find(x => x.id === id);
+      if (c) {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = c.name;
+        box.appendChild(chip);
+      }
+    });
+    if (targetIds.length > 18) {
+      const more = document.createElement('span');
+      more.className = 'chip';
+      more.textContent = `+${targetIds.length - 18} más`;
+      box.appendChild(more);
+    }
+  }
+
+  function updatePreview() {
+    $('preview').textContent = $('message').value.trim() || '—';
+    updateSendButton();
+  }
+
+  function updateSendButton() {
+    const count = targetIds.length;
+    $('send').textContent = `Enviar a ${count} contacto${count === 1 ? '' : 's'}`;
+    $('send').disabled = lastStatus !== 'ready' || count === 0 || !$('message').value.trim() || !!currentJobId;
+  }
+
+  async function loadContacts() {
+    if (lastStatus !== 'ready') return;
+    try {
+      const data = await api('/api/contacts');
+      allContacts = data.contacts;
+      $('allCountChip').textContent = `${allContacts.length} contactos`;
+      selectedIds = new Set([...selectedIds].filter(id => allContacts.some(c => c.id === id)));
+      renderContacts();
+      renderTarget();
+    } catch (e) {
+      $('contacts').innerHTML = `<div class="danger-text" style="padding:14px">${e.message}</div>`;
+    }
+  }
+
+  async function loadBlocks() {
+    try {
+      const data = await api('/api/blocks');
+      blocks = data.blocks;
+      renderBlocks();
+    } catch (e) {
+      $('blocks').innerHTML = `<div class="danger-text">${e.message}</div>`;
+    }
+  }
+
+  function renderBlocks() {
+    const box = $('blocks');
+    box.innerHTML = '';
+    if (!blocks.length) {
+      box.innerHTML = '<div class="muted small">Todavía no tienes bloques.</div>';
+      return;
+    }
+    for (const b of blocks) {
+      const row = document.createElement('div');
+      row.className = 'block-item';
+      row.innerHTML = `<div class="block-item-main"><div class="name"></div><div class="number"></div></div><button class="use">Usar</button><button class="delete danger">Eliminar</button>`;
+      row.querySelector('.name').textContent = b.name;
+      row.querySelector('.number').textContent = `${b.contactIds.length} contacto(s)`;
+      row.querySelector('.use').onclick = () => {
+        targetIds = b.contactIds.filter(id => allContacts.some(c => c.id === id));
+        targetTitle = `Bloque: ${b.name}`;
+        renderTarget();
+        updateSendButton();
+      };
+      row.querySelector('.delete').onclick = async () => {
+        if (!confirm(`¿Eliminar el bloque "${b.name}"?`)) return;
+        try { await api(`/api/blocks/${b.id}`, { method:'DELETE' }); await loadBlocks(); }
+        catch (e) { alert(e.message); }
+      };
+      box.appendChild(row);
+    }
+  }
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      btn.classList.add('active');
+      ['contacts','blocks','all'].forEach(tab => $(
+        `tab-${tab}`
+      ).hidden = tab !== btn.dataset.tab);
+    });
+  });
+
+  $('search').addEventListener('input', renderContacts);
+  $('message').addEventListener('input', updatePreview);
+  $('refresh').addEventListener('click', loadContacts);
+
+  $('selectVisible').addEventListener('click', () => {
+    visibleContacts().forEach(c => selectedIds.add(c.id));
+    updateTargetFromSelection();
+    renderContacts();
+  });
+
+  $('clearSelection').addEventListener('click', () => {
+    selectedIds.clear();
+    targetIds = [];
+    targetTitle = 'Selección manual';
+    renderContacts();
+    renderTarget();
+    updateSendButton();
+  });
+
+  $('chooseAll').addEventListener('click', () => {
+    targetIds = allContacts.map(c => c.id);
+    targetTitle = 'Todos mis contactos';
+    renderTarget();
+    updateSendButton();
+  });
+
+  $('saveBlock').addEventListener('click', () => {
+    $('blockSelectedCount').textContent = selectedIds.size;
+    $('blockName').value = '';
+    $('blockModal').style.display = 'flex';
+    $('blockName').focus();
+  });
+
+  $('closeModal').addEventListener('click', () => $('blockModal').style.display = 'none');
+
+  $('confirmBlock').addEventListener('click', async () => {
+    const name = $('blockName').value.trim();
+    if (!name) return alert('Escribe un nombre para el bloque.');
+    try {
+      await api('/api/blocks', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ name, contactIds:Array.from(selectedIds) })
+      });
+      $('blockModal').style.display = 'none';
+      await loadBlocks();
+      alert('Bloque guardado correctamente.');
+    } catch (e) { alert(e.message); }
+  });
+
+  $('send').addEventListener('click', async () => {
+    const message = $('message').value.trim();
+    if (!targetIds.length || !message) return;
+    const firstNames = targetIds.slice(0, 6).map(id => allContacts.find(c => c.id === id)?.name).filter(Boolean);
+    const extra = targetIds.length > 6 ? `\n+ ${targetIds.length - 6} contactos más` : '';
+    const ok = confirm(`¿Enviar este mensaje a ${targetIds.length} contacto(s)?\n\n${firstNames.join(', ')}${extra}\n\nMensaje:\n${message}`);
+    if (!ok) return;
+
+    $('feedback').textContent = 'Iniciando envío...';
+    $('feedback').className = 'feedback muted';
+    $('progressWrap').style.display = 'block';
+    $('cancelSend').style.display = 'inline-block';
+    updateSendButton();
+
+    try {
+      const data = await api('/api/send', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ contactIds:targetIds, message, delayMs:Number($('delay').value) })
+      });
+      currentJobId = data.jobId;
+      updateSendButton();
+      await pollJob();
+    } catch (e) {
+      $('feedback').textContent = e.message;
+      $('feedback').className = 'feedback danger-text';
+      $('progressWrap').style.display = 'none';
+      $('cancelSend').style.display = 'none';
+      currentJobId = null;
+      updateSendButton();
+    }
+  });
+
+  $('cancelSend').addEventListener('click', async () => {
+    if (!currentJobId) return;
+    try { await api(`/api/send/${currentJobId}/cancel`, { method:'POST' }); }
+    catch (e) { $('feedback').textContent = e.message; }
+  });
+
+  async function pollJob() {
+    if (!currentJobId) return;
+    try {
+      const job = await api(`/api/send/${currentJobId}`);
+      const done = job.sent + job.failed;
+      const percent = job.total ? Math.round((done / job.total) * 100) : 0;
+      $('progressBar').style.width = `${percent}%`;
+      $('progressText').textContent = `${done}/${job.total} procesados · ${job.sent} enviados · ${job.failed} errores${job.current ? ` · Enviando: ${job.current}` : ''}`;
+
+      if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+        $('cancelSend').style.display = 'none';
+        currentJobId = null;
+        updateSendButton();
+        $('feedback').textContent = job.status === 'completed'
+          ? `Proceso terminado: ${job.sent} enviados, ${job.failed} con error.`
+          : job.status === 'cancelled'
+            ? `Envío cancelado: ${job.sent} enviados, ${job.failed} con error.`
+            : (job.error || 'El envío terminó con error.');
+        $('feedback').className = job.failed ? 'feedback danger-text' : 'feedback success';
+        return;
+      }
+      setTimeout(pollJob, 700);
+    } catch (e) {
+      $('feedback').textContent = e.message;
+      $('feedback').className = 'feedback danger-text';
+      $('cancelSend').style.display = 'none';
+      currentJobId = null;
+      updateSendButton();
+    }
+  }
+
+  setInterval(async () => {
+    try { renderStatus(await api('/api/status')); } catch {}
+    if (lastStatus === 'ready' && !allContacts.length) await loadContacts();
+  }, 2500);
+
+  (async function init() {
+    try { renderStatus(await api('/api/status')); } catch {}
+    await loadBlocks();
+  })();
+</script>
+</body>
+</html>
